@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SBICAP EOD">
+<meta name="theme-color" content="#060c1a">
+<link rel="manifest" href="manifest.json">
+<title>SBICAP EOD Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #060c1a;
+  --surface: #0a1228;
+  --card: #0f1a35;
+  --card2: #111f3d;
+  --border: #1c2e55;
+  --accent: #0ea5e9;
+  --green: #10b981;
+  --orange: #f97316;
+  --gold: #f59e0b;
+  --red: #ef4444;
+  --purple: #8b5cf6;
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --font-display: 'Orbitron', monospace;
+  --font-body: 'Exo 2', sans-serif;
+  --font-mono: 'Share Tech Mono', monospace;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+}
+
+/* Grid bg texture */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(14,165,233,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14,165,233,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── HEADER ── */
+.hdr {
+  position: sticky; top: 0; z-index: 100;
+  background: linear-gradient(180deg, #060c1a 0%, rgba(6,12,26,0.95) 100%);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.hdr-brand { display: flex; flex-direction: column; }
+.hdr-title {
+  font-family: var(--font-display);
+  font-size: 1rem; font-weight: 900;
+  letter-spacing: 3px;
+  background: linear-gradient(135deg, #0ea5e9, #10b981);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  line-height: 1;
+}
+.hdr-sub { font-size: 0.55rem; color: var(--muted); letter-spacing: 2px; margin-top: 2px; }
+.hdr-right { text-align: right; }
+.sync-row { display: flex; align-items: center; gap: 5px; justify-content: flex-end; }
+.sync-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: blink 2s infinite;
+}
+.sync-dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); animation: none; }
+.sync-dot.syncing { background: var(--gold); box-shadow: 0 0 6px var(--gold); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.sync-txt { font-family: var(--font-mono); font-size: 0.6rem; color: var(--muted); }
+.clock { font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent); margin-top: 2px; }
+
+/* ── TABS ── */
+.tabs {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto; scrollbar-width: none;
+  position: sticky; top: 57px; z-index: 99;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex: 1; min-width: 70px;
+  padding: 11px 8px;
+  font-family: var(--font-display);
+  font-size: 0.55rem; font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-icon { font-size: 1rem; display: block; margin-bottom: 2px; }
+
+/* ── PAGES ── */
+.pg { display: none; padding: 14px; position: relative; z-index: 1; }
+.pg.active { display: block; animation: fadein 0.25s ease; }
+@keyframes fadein { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+
+/* ── DATE BAR ── */
+.datebar {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+}
+.date-big { font-family: var(--font-display); font-size: 0.9rem; font-weight: 700; color: var(--gold); }
+.date-small { font-size: 0.62rem; color: var(--muted); margin-top: 2px; }
+.nav-row { display: flex; gap: 6px; }
+.nbtn {
+  background: var(--border); border: none; color: var(--text);
+  padding: 7px 14px; border-radius: 8px;
+  font-family: var(--font-display); font-size: 0.6rem; font-weight: 700;
+  cursor: pointer; transition: all 0.15s;
+}
+.nbtn:active { background: var(--accent); transform: scale(0.94); }
+.tbtn {
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  border: none; color: #fff;
+  padding: 7px 14px; border-radius: 8px;
+  font-family: var(--font-display); font-size: 0.6rem; font-weight: 700;
+  cursor: pointer;
+}
+.hbadge {
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 1px;
+  font-family: var(--font-display);
+}
+.hbadge.holiday { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid var(--red); }
+.hbadge.working { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid var(--green); }
+
+/* ── OPERATOR SELECT ── */
+.opbar {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.oplbl { font-family: var(--font-display); font-size: 0.6rem; color: var(--muted); letter-spacing: 1px; white-space: nowrap; }
+.opsel {
+  flex: 1; background: var(--card); border: 1px solid var(--border);
+  color: var(--text); padding: 10px 14px; border-radius: 10px;
+  font-family: var(--font-body); font-size: 0.9rem;
+}
+.opsel:focus { outline: none; border-color: var(--accent); }
+
+/* ── CATEGORY CARDS ── */
+.catgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px; margin-bottom: 14px;
+}
+.catcard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px;
+  transition: border-color 0.2s, transform 0.1s;
+  position: relative; overflow: hidden;
+}
+.catcard::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--cat-color, var(--accent));
+}
+.catcard:active { transform: scale(0.98); }
+.catname {
+  font-family: var(--font-display);
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 1px;
+  color: var(--cat-color, var(--accent));
+  margin-bottom: 2px;
+}
+.catlbl { font-size: 0.6rem; color: var(--muted); margin-bottom: 12px; }
+.catrow { display: flex; align-items: center; gap: 8px; }
+.catinp {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); padding: 10px; border-radius: 8px;
+  font-family: var(--font-mono); font-size: 1.3rem; text-align: center;
+  transition: border-color 0.2s;
+}
+.catinp:focus { outline: none; border-color: var(--cat-color, var(--accent)); }
+.ibtn {
+  width: 38px; height: 38px; border: none; border-radius: 8px;
+  cursor: pointer; font-size: 1.2rem; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.ibtn:active { transform: scale(0.88); }
+.ibtn.dec { background: rgba(239,68,68,0.15); color: var(--red); }
+.ibtn.inc { background: rgba(16,185,129,0.15); color: var(--green); }
+.catteam { font-size: 0.65rem; color: var(--muted); margin-top: 10px; }
+.catteam span { color: var(--green); font-weight: 700; font-family: var(--font-mono); }
+
+/* ── TOTAL BANNER ── */
+.totalbanner {
+  background: linear-gradient(135deg, rgba(14,165,233,0.1), rgba(16,185,129,0.05));
+  border: 1px solid var(--accent);
+  border-radius: 14px; padding: 16px 18px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  margin-bottom: 14px;
+  position: relative; overflow: hidden;
+}
+.totalbanner::before {
+  content: 'EOD';
+  position: absolute; right: -10px; top: -10px;
+  font-family: var(--font-display); font-size: 3rem; font-weight: 900;
+  color: rgba(14,165,233,0.05); pointer-events: none;
+}
+.tot-lbl { font-family: var(--font-display); font-size: 0.62rem; color: var(--muted); letter-spacing: 2px; }
+.tot-num { font-family: var(--font-display); font-size: 2.2rem; font-weight: 900; color: var(--accent); line-height: 1; margin-top: 2px; }
+.savebtn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none; color: #fff;
+  padding: 12px 22px; border-radius: 10px;
+  font-family: var(--font-display); font-size: 0.7rem; font-weight: 700;
+  cursor: pointer; letter-spacing: 1px;
+  transition: all 0.15s;
+  box-shadow: 0 4px 15px rgba(16,185,129,0.3);
+}
+.savebtn:active { transform: scale(0.95); box-shadow: none; }
+
+/* ── SYNC BAR ── */
+.syncbar {
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  font-size: 0.62rem; color: var(--muted); margin-bottom: 10px;
+}
+.refbtn {
+  background: none; border: 1px solid var(--border);
+  color: var(--accent); font-size: 0.62rem; padding: 3px 10px;
+  border-radius: 6px; cursor: pointer; font-family: var(--font-display);
+}
+
+/* ── SUMMARY CARDS ── */
+.sumtitle {
+  font-family: var(--font-display); font-size: 0.62rem;
+  color: var(--muted); letter-spacing: 2px; margin-bottom: 10px;
+}
+.sumgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px; margin-bottom: 16px;
+}
+.sumcard {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px;
+  transition: border-color 0.2s;
+}
+.sumcard.has-data { border-color: rgba(16,185,129,0.3); }
+.sumop { font-family: var(--font-display); font-size: 0.65rem; font-weight: 700; color: var(--green); margin-bottom: 4px; }
+.sumtot { font-family: var(--font-display); font-size: 1.6rem; font-weight: 900; color: var(--accent); line-height: 1; }
+.sumbk { font-size: 0.58rem; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+.sumtime { font-size: 0.55rem; color: var(--border); margin-top: 4px; font-family: var(--font-mono); }
+
+/* ── CHARTS ── */
+.chsec { margin-bottom: 18px; }
+.chtitle {
+  font-family: var(--font-display); font-size: 0.65rem; font-weight: 700;
+  letter-spacing: 1px; color: var(--accent); margin-bottom: 10px;
+}
+.chwrap {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px; overflow: hidden;
+}
+canvas { max-width: 100%; }
+
+/* ── CALENDAR ── */
+.calleg { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.legit { display: flex; align-items: center; gap: 5px; font-size: 0.6rem; color: var(--muted); }
+.legdot { width: 10px; height: 10px; border-radius: 3px; }
+.calmonth {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px; margin-bottom: 12px;
+}
+.calmname {
+  font-family: var(--font-display); font-size: 0.75rem; font-weight: 700;
+  color: var(--gold); margin-bottom: 10px; letter-spacing: 1px;
+}
+.calgrid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+.caldh {
+  font-family: var(--font-display); font-size: 0.52rem;
+  color: var(--muted); text-align: center; padding: 4px 0; letter-spacing: 1px;
+}
+.calcell {
+  text-align: center; padding: 6px 2px;
+  border-radius: 6px; font-size: 0.68rem;
+  font-family: var(--font-mono); cursor: pointer;
+  transition: all 0.1s;
+}
+.calcell:active { transform: scale(0.88); }
+.calcell.empty { pointer-events: none; }
+.calcell.working { background: rgba(14,165,233,0.06); color: var(--text); }
+.calcell.holiday { background: rgba(239,68,68,0.1); color: var(--red); font-weight: 700; }
+.calcell.bankh { background: rgba(249,115,22,0.1); color: var(--orange); }
+.calcell.today { background: var(--accent); color: #fff; font-weight: 700; box-shadow: 0 0 10px rgba(14,165,233,0.4); }
+.calcell.hasdata { box-shadow: inset 0 0 0 1px var(--green); }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--card); border: 1px solid var(--green);
+  color: var(--text); padding: 10px 20px; border-radius: 12px;
+  font-family: var(--font-display); font-size: 0.7rem; letter-spacing: 1px;
+  z-index: 9999; opacity: 0; transition: all 0.3s; pointer-events: none;
+  white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+/* ── LOAD BAR ── */
+.loadbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+  z-index: 999; width: 0; transition: width 0.4s ease;
+}
+
+/* ── INSTALL BANNER ── */
+.install-banner {
+  display: none;
+  background: linear-gradient(135deg, rgba(14,165,233,0.1), rgba(16,185,129,0.1));
+  border: 1px solid var(--accent); border-radius: 12px;
+  padding: 12px 16px; margin-bottom: 14px;
+  align-items: center; justify-content: space-between; gap: 10px;
+}
+.install-banner.show { display: flex; }
+.install-txt { font-family: var(--font-display); font-size: 0.65rem; color: var(--accent); }
+.install-btn {
+  background: var(--accent); border: none; color: #fff;
+  padding: 8px 14px; border-radius: 8px;
+  font-family: var(--font-display); font-size: 0.6rem; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+}
+
+@media(max-width:400px) {
+  .catgrid { grid-template-columns: 1fr; }
+  .sumgrid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="loadbar" id="loadBar"></div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-brand">
+    <div class="hdr-title">⚡ SBICAP EOD</div>
+    <div class="hdr-sub">DAILY PERFORMANCE TRACKER</div>
+  </div>
+  <div class="hdr-right">
+    <div class="sync-row">
+      <div class="sync-dot" id="syncDot"></div>
+      <span class="sync-txt" id="syncTxt">CONNECTING</span>
+    </div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="showTab('eod')">
+    <span class="tab-icon">📋</span>EOD
+  </div>
+  <div class="tab" onclick="showTab('perf')">
+    <span class="tab-icon">📊</span>CHARTS
+  </div>
+  <div class="tab" onclick="showTab('cal')">
+    <span class="tab-icon">📅</span>CALENDAR
+  </div>
+</div>
+
+<!-- ══ PAGE: EOD ══ -->
+<div class="pg active" id="pg-eod">
+
+  <div class="install-banner" id="installBanner">
+    <div class="install-txt">📱 INSTALL AS APP ON YOUR PHONE</div>
+    <button class="install-btn" id="installBtn">INSTALL</button>
+  </div>
+
+  <div class="datebar">
+    <div>
+      <div class="date-big" id="dateDisp">—</div>
+      <div class="date-small" id="dayDisp">—</div>
+    </div>
+    <div class="nav-row">
+      <button class="nbtn" onclick="chDay(-1)">◀</button>
+      <button class="tbtn" onclick="goToday()">TODAY</button>
+      <button class="nbtn" onclick="chDay(1)">▶</button>
+    </div>
+    <div id="dayBadge"></div>
+  </div>
+
+  <div class="opbar">
+    <span class="oplbl">YOUR NAME:</span>
+    <select class="opsel" id="opSel" onchange="loadMyData()">
+      <option value="">— SELECT YOUR NAME —</option>
+      <option>MANI</option><option>PERUMAL</option><option>JAYA</option>
+      <option>CHITRA</option><option>HARI</option><option>ROHAN</option>
+      <option>SANGEETHA</option><option>TAMIL</option><option>KEERTHANA</option>
+      <option>MUTHU SIR</option>
+    </select>
+  </div>
+
+  <div class="catgrid" id="catGrid"></div>
+
+  <div class="totalbanner">
+    <div>
+      <div class="tot-lbl">MY TOTAL TODAY</div>
+      <div class="tot-num" id="grandTotal">0</div>
+    </div>
+    <button class="savebtn" onclick="saveEOD()">💾 SAVE EOD</button>
+  </div>
+
+  <div class="syncbar">
+    <span id="lastSync">Last sync: —</span>
+    <button class="refbtn" onclick="fetchAll(true)">⟳ REFRESH</button>
+  </div>
+
+  <div class="sumtitle" id="sumTitleEl">📌 TEAM REPORT — —</div>
+  <div class="sumgrid" id="sumGrid"></div>
+</div>
+
+<!-- ══ PAGE: PERFORMANCE ══ -->
+<div class="pg" id="pg-perf">
+  <div class="datebar" style="margin-bottom:14px">
+    <div class="date-big" id="perfDateDisp">—</div>
+    <div class="nav-row">
+      <button class="nbtn" onclick="chPerfDay(-1)">◀</button>
+      <button class="tbtn" onclick="goPerfToday()">TODAY</button>
+      <button class="nbtn" onclick="chPerfDay(1)">▶</button>
+    </div>
+  </div>
+  <div class="chsec">
+    <div class="chtitle">📌 CATEGORY PERFORMANCE</div>
+    <div class="chwrap"><canvas id="catChart" height="220"></canvas></div>
+  </div>
+  <div class="chsec">
+    <div class="chtitle">👥 TEAM PERFORMANCE</div>
+    <div class="chwrap"><canvas id="teamChart" height="220"></canvas></div>
+  </div>
+  <div class="chsec">
+    <div class="chtitle">📈 7-DAY CATEGORY TREND</div>
+    <div class="chwrap"><canvas id="trendChart" height="220"></canvas></div>
+  </div>
+</div>
+
+<!-- ══ PAGE: CALENDAR ══ -->
+<div class="pg" id="pg-cal">
+  <div class="calleg">
+    <div class="legit"><div class="legdot" style="background:var(--accent)"></div>TODAY</div>
+    <div class="legit"><div class="legdot" style="background:var(--red)"></div>2nd/4th SAT</div>
+    <div class="legit"><div class="legdot" style="background:var(--orange)"></div>BANK HOL</div>
+    <div class="legit"><div class="legdot" style="background:rgba(14,165,233,0.15)"></div>WORKING</div>
+    <div class="legit"><div class="legdot" style="box-shadow:inset 0 0 0 1px var(--green);background:transparent"></div>HAS DATA</div>
+  </div>
+  <div id="calBox"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set, onValue, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+// ══════════════════════════════════════════
+// FIREBASE CONFIG
+// ══════════════════════════════════════════
+const firebaseConfig = {
+  databaseURL: 'https://sbicap-eod-default-rtdb.asia-southeast1.firebasedatabase.app'
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// ══════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════
+const CATS = ['YONO','FEEDBACK','CBDC','WHATSAPP BANKING','PAI','PPF','NPS'];
+const OPS  = ['MANI','PERUMAL','JAYA','CHITRA','HARI','ROHAN','SANGEETHA','TAMIL','KEERTHANA','MUTHU SIR'];
+const COLORS = ['#0ea5e9','#10b981','#f97316','#f59e0b','#8b5cf6','#ef4444','#06b6d4'];
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let curDate  = todayStr();
+let perfDate = todayStr();
+let cloudData = {};  // entire EOD db
+let catChI=null, teamChI=null, trendChI=null;
+let deferredPrompt = null;
+
+// ══════════════════════════════════════════
+// DATE UTILS
+// ══════════════════════════════════════════
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function fmtDate(s) {
+  return new Date(s+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+}
+function dayName(s) {
+  return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date(s+'T00:00:00').getDay()];
+}
+function addDays(s, n) {
+  const d = new Date(s+'T00:00:00'); d.setDate(d.getDate()+n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function isHoliday(s) {
+  const d = new Date(s+'T00:00:00'), day=d.getDay(), date=d.getDate();
+  if(day===0) return {h:true, r:'Sunday'};
+  if(day===6) { const wk=Math.ceil(date/7); if(wk===2||wk===4) return {h:true,r:'2nd/4th Saturday'}; }
+  const bh = {
+    '2025-01-26':'Republic Day','2025-03-14':'Holi','2025-04-14':'Ambedkar Jayanti',
+    '2025-04-18':'Good Friday','2025-05-01':'May Day','2025-08-15':'Independence Day',
+    '2025-10-02':'Gandhi Jayanti','2025-10-20':'Diwali','2025-11-05':'Guru Nanak Jayanti',
+    '2025-12-25':'Christmas','2026-01-26':'Republic Day','2026-03-03':'Maha Shivaratri',
+    '2026-03-20':'Holi','2026-04-03':'Good Friday','2026-04-14':'Ambedkar Jayanti',
+    '2026-05-01':'May Day','2026-08-15':'Independence Day'
+  };
+  if(bh[s]) return {h:true, r:bh[s]};
+  return {h:false};
+}
+
+// ══════════════════════════════════════════
+// CLOCK
+// ══════════════════════════════════════════
+function tick() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-IN',{hour12:true})+' IST';
+}
+setInterval(tick,1000); tick();
+
+// ══════════════════════════════════════════
+// FIREBASE REALTIME LISTENER
+// ══════════════════════════════════════════
+function startLiveSync() {
+  setSyncStatus('connecting');
+  const eodRef = ref(db, 'eod');
+  onValue(eodRef, (snapshot) => {
+    cloudData = snapshot.val() || {};
+    setSyncStatus('live');
+    document.getElementById('lastSync').textContent =
+      'Last sync: ' + new Date().toLocaleTimeString('en-IN',{hour12:true});
+    renderEOD();
+    renderSummary();
+    updateTeamTotals();
+  }, (error) => {
+    setSyncStatus('offline');
+    console.error(error);
+  });
+}
+
+async function fetchAll(showMsg=false) {
+  if(showMsg) showT('⟳ Refreshing...');
+  // onValue handles this — just trigger UI refresh
+  renderEOD();
+  renderSummary();
+  if(showMsg) showT('✅ Data refreshed');
+}
+
+// ══════════════════════════════════════════
+// SYNC STATUS
+// ══════════════════════════════════════════
+function setSyncStatus(status) {
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncTxt');
+  if(status==='live') { dot.className='sync-dot'; txt.textContent='LIVE ✓'; }
+  else if(status==='offline') { dot.className='sync-dot offline'; txt.textContent='OFFLINE'; }
+  else { dot.className='sync-dot syncing'; txt.textContent='SYNCING...'; }
+}
+
+// ══════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════
+window.showTab = function(name) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
+  document.querySelector(`.tab[onclick="showTab('${name}')"]`).classList.add('active');
+  document.getElementById('pg-'+name).classList.add('active');
+  if(name==='perf') renderCharts();
+  if(name==='cal') renderCal();
+};
+
+// ══════════════════════════════════════════
+// DATE NAV
+// ══════════════════════════════════════════
+window.chDay = (n) => { curDate=addDays(curDate,n); updateDateBar(); renderEOD(); renderSummary(); };
+window.goToday = () => { curDate=todayStr(); updateDateBar(); renderEOD(); renderSummary(); };
+
+function updateDateBar() {
+  document.getElementById('dateDisp').textContent = fmtDate(curDate);
+  document.getElementById('dayDisp').textContent = dayName(curDate);
+  document.getElementById('sumTitleEl').textContent = `📌 TEAM REPORT — ${fmtDate(curDate)}`;
+  const hol = isHoliday(curDate);
+  document.getElementById('dayBadge').innerHTML = hol.h
+    ? `<span class="hbadge holiday">🏖 ${hol.r}</span>`
+    : `<span class="hbadge working">✅ WORKING DAY</span>`;
+}
+
+// ══════════════════════════════════════════
+// CATEGORY GRID
+// ══════════════════════════════════════════
+function buildCatGrid() {
+  document.getElementById('catGrid').innerHTML = CATS.map((c,i) => `
+    <div class="catcard" style="--cat-color:${COLORS[i]}">
+      <div class="catname">${c}</div>
+      <div class="catlbl">Units achieved today</div>
+      <div class="catrow">
+        <button class="ibtn dec" onclick="adj(${i},-1)">−</button>
+        <input class="catinp" type="number" min="0" id="c${i}" value="0" oninput="recalc()" inputmode="numeric">
+        <button class="ibtn inc" onclick="adj(${i},1)">+</button>
+      </div>
+      <div class="catteam">Team total today: <span id="tt${i}">0</span></div>
+    </div>`).join('');
+}
+
+window.adj = (i,n) => {
+  const el=document.getElementById('c'+i);
+  el.value=Math.max(0,(parseInt(el.value)||0)+n);
+  recalc();
+};
+
+function recalc() {
+  let t=0; CATS.forEach((_,i)=>{t+=parseInt(document.getElementById('c'+i).value)||0;});
+  document.getElementById('grandTotal').textContent=t;
+}
+
+function loadMyData() {
+  const op=document.getElementById('opSel').value;
+  const key=`${curDate}_${op}`;
+  const ent=op&&cloudData[key] ? cloudData[key] : {};
+  CATS.forEach((c,i)=>{document.getElementById('c'+i).value=ent[c]||0;});
+  recalc();
+  updateTeamTotals();
+}
+
+function renderEOD() {
+  updateDateBar();
+  loadMyData();
+}
+
+function updateTeamTotals() {
+  CATS.forEach((c,i)=>{
+    let t=0;
+    OPS.forEach(op=>{ const k=`${curDate}_${op}`; t+=(cloudData[k]&&cloudData[k][c])||0; });
+    const el=document.getElementById('tt'+i);
+    if(el) el.textContent=t;
+  });
+}
+
+// ══════════════════════════════════════════
+// SAVE EOD TO FIREBASE
+// ══════════════════════════════════════════
+window.saveEOD = async function() {
+  const op=document.getElementById('opSel').value;
+  if(!op) { showT('⚠️ Select your name first!'); return; }
+  const key=`${curDate}_${op}`;
+  const ent={_op:op, _at:new Date().toISOString()};
+  CATS.forEach((c,i)=>{ ent[c]=parseInt(document.getElementById('c'+i).value)||0; });
+  showT('💾 Saving to cloud...');
+  try {
+    await set(ref(db, `eod/${key}`), ent);
+    showT(`✅ EOD saved for ${op}!`);
+  } catch(e) {
+    showT('❌ Save failed. Check internet.');
+    console.error(e);
+  }
+};
+
+// ══════════════════════════════════════════
+// TEAM SUMMARY
+// ══════════════════════════════════════════
+function renderSummary() {
+  document.getElementById('sumGrid').innerHTML = OPS.map(op => {
+    const k=`${curDate}_${op}`;
+    const e=cloudData[k]||{};
+    let tot=0;
+    const bk=CATS.map(c=>{ const v=e[c]||0; tot+=v; return `${c.replace(' BANKING','').replace('WHATS','WA')}:${v}`; }).join(' ');
+    return `<div class="sumcard ${tot>0?'has-data':''}">
+      <div class="sumop">${op}</div>
+      <div class="sumtot">${tot}</div>
+      <div class="sumbk">${bk}</div>
+      ${e._at?`<div class="sumtime">Saved ${new Date(e._at).toLocaleTimeString('en-IN',{hour12:true})}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// CHARTS
+// ══════════════════════════════════════════
+window.chPerfDay = (n) => { perfDate=addDays(perfDate,n); renderCharts(); };
+window.goPerfToday = () => { perfDate=todayStr(); renderCharts(); };
+
+function renderCharts() {
+  document.getElementById('perfDateDisp').textContent = fmtDate(perfDate);
+  const catTots = CATS.map(c=>{ let t=0; OPS.forEach(op=>{ const k=`${perfDate}_${op}`; t+=(cloudData[k]&&cloudData[k][c])||0; }); return t; });
+  const teamTots = OPS.map(op=>{ let t=0; const k=`${perfDate}_${op}`; if(cloudData[k]) CATS.forEach(c=>{t+=cloudData[k][c]||0;}); return t; });
+
+  // 7 working days
+  const days=[]; let d=perfDate;
+  while(days.length<7) { if(!isHoliday(d).h) days.unshift(d); d=addDays(d,-1); }
+
+  const co=(yLabel)=>({responsive:true,plugins:{legend:{labels:{color:'#64748b',font:{family:'Exo 2',size:10}}}},scales:{x:{ticks:{color:'#64748b',font:{family:'Exo 2'}},grid:{color:'#1c2e55'}},y:{ticks:{color:'#64748b'},grid:{color:'#1c2e55'},beginAtZero:true}}});
+
+  if(catChI) catChI.destroy();
+  catChI=new Chart(document.getElementById('catChart'),{
+    type:'bar',
+    data:{labels:CATS,datasets:[{label:'Units',data:catTots,backgroundColor:COLORS,borderRadius:8,borderSkipped:false}]},
+    options:{...co(),plugins:{legend:{display:false}}}
+  });
+
+  if(teamChI) teamChI.destroy();
+  teamChI=new Chart(document.getElementById('teamChart'),{
+    type:'bar',
+    data:{labels:OPS,datasets:[{label:'Total',data:teamTots,backgroundColor:'#0ea5e9',borderRadius:8}]},
+    options:{...co(),plugins:{legend:{display:false}}}
+  });
+
+  const datasets=CATS.map((c,i)=>({
+    label:c, data:days.map(day=>{ let t=0; OPS.forEach(op=>{ const k=`${day}_${op}`; t+=(cloudData[k]&&cloudData[k][c])||0; }); return t; }),
+    borderColor:COLORS[i], backgroundColor:COLORS[i]+'22', tension:0.4, fill:true, pointRadius:4, pointBackgroundColor:COLORS[i]
+  }));
+  if(trendChI) trendChI.destroy();
+  trendChI=new Chart(document.getElementById('trendChart'),{
+    type:'line', data:{labels:days.map(s=>s.slice(5)), datasets},
+    options:co()
+  });
+}
+
+// ══════════════════════════════════════════
+// CALENDAR
+// ══════════════════════════════════════════
+function renderCal() {
+  const today=todayStr();
+  const months=[];
+  for(let m=3;m<=11;m++) months.push({y:2025,m});
+  for(let m=0;m<=2;m++) months.push({y:2026,m});
+  for(let m=3;m<=11;m++) months.push({y:2026,m});
+  for(let m=0;m<=2;m++) months.push({y:2027,m});
+
+  document.getElementById('calBox').innerHTML = months.map(({y,m}) => {
+    const mname=new Date(y,m,1).toLocaleString('en-IN',{month:'long',year:'numeric'});
+    const first=new Date(y,m,1).getDay();
+    const daysN=new Date(y,m+1,0).getDate();
+    const dh=['SUN','MON','TUE','WED','THU','FRI','SAT'].map(d=>`<div class="caldh">${d}</div>`).join('');
+    let cells=Array(first).fill('<div class="calcell empty"></div>').join('');
+    for(let d=1;d<=daysN;d++){
+      const s=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const hol=isHoliday(s);
+      const hasD=OPS.some(op=>{ const k=`${s}_${op}`; const e=cloudData[k]; return e&&CATS.some(c=>e[c]>0); });
+      let cls='calcell working';
+      if(s===today) cls='calcell today';
+      else if(hol.h) cls=hol.r.includes('Sat')||hol.r==='Sunday'?'calcell holiday':'calcell bankh';
+      if(hasD&&s!==today) cls+=' hasdata';
+      cells+=`<div class="${cls}" title="${hol.h?hol.r:s}" onclick="jumpDate('${s}')">${d}</div>`;
+    }
+    return `<div class="calmonth"><div class="calmname">${mname}</div><div class="calgrid">${dh}${cells}</div></div>`;
+  }).join('');
+}
+
+window.jumpDate = (s) => { curDate=s; showTab('eod'); updateDateBar(); renderEOD(); renderSummary(); };
+
+// ══════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════
+function showT(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg;
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2800);
+}
+window.showT = showT;
+
+// ══════════════════════════════════════════
+// PWA INSTALL
+// ══════════════════════════════════════════
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); deferredPrompt=e;
+  document.getElementById('installBanner').classList.add('show');
+});
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const {outcome}=await deferredPrompt.userChoice;
+  if(outcome==='accepted') document.getElementById('installBanner').classList.remove('show');
+  deferredPrompt=null;
+});
+
+// ══════════════════════════════════════════
+// LOAD CHART.JS & INIT
+// ══════════════════════════════════════════
+const cs=document.createElement('script');
+cs.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+cs.onload=()=>{
+  Chart.defaults.color='#64748b';
+  Chart.defaults.borderColor='#1c2e55';
+  buildCatGrid();
+  updateDateBar();
+  startLiveSync(); // Firebase real-time listener starts here
+};
+document.head.appendChild(cs);
+
+window.fetchAll=fetchAll;
+</script>
+
+<!-- Service Worker registration -->
+<script>
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>

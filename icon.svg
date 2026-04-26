@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#060c1a"/>
+  <rect width="192" height="192" rx="32" fill="url(#g)"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="192" y2="192" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.2"/>
+    </linearGradient>
+  </defs>
+  <text x="96" y="80" font-family="monospace" font-size="52" font-weight="900" fill="#0ea5e9" text-anchor="middle">⚡</text>
+  <text x="96" y="122" font-family="monospace" font-size="20" font-weight="700" fill="#10b981" text-anchor="middle">EOD</text>
+  <text x="96" y="148" font-family="monospace" font-size="13" fill="#64748b" text-anchor="middle">SBICAP</text>
+</svg>
